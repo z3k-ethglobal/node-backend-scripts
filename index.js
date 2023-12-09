@@ -1,10 +1,17 @@
 const express = require('express');
 const multer = require('multer');
+const bodyParser = require('body-parser');
+const keccak256 = require('keccak256');
 const app = express();
 const lighthouse = require('@lighthouse-web3/sdk');
-const { lh } = require('./lhscript');
+const { ethers } = require("ethers");
+const { kavach } = require("@lighthouse-web3/kavach");
+
+app.use(bodyParser.json()); // for parsing application/json
+app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
 
 const port = 8080; // You can use any available port
+let filename = "";
 
 // Multer Configuration
 const storage = multer.diskStorage({
@@ -12,28 +19,44 @@ const storage = multer.diskStorage({
     cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
-    cb(null, 'file.txt');
-    // cb(null, Date.now() + '-' + file.originalname);
+    // cb(null, 'file.txt');
+    filename = Date.now() + '-' + file.originalname;
+    cb(null, filename);
   },
 });
 
 const upload = multer({ storage });
 
+const signAuthMessage = async(privateKey) =>{
+    const signer = new ethers.Wallet(privateKey)
+    const authMessage = await kavach.getAuthMessage(signer.address)
+    const signedMessage = await signer.signMessage(authMessage.message)
+    const { JWT, error } = await kavach.getJWT(signer.address, signedMessage)
+    return(JWT)
+}
 
-async function asyncLH () {
-    console.log("asyncLH")
-    // const uploadResponse = new Promise((resolve) => {
-    //     resolve(lighthouse.upload(
-    //         '/Users/aryan/4zzz.pdb',
-    //         'efe51041.77131449b309469f98eed12c6f319f0f'
-    //         ));
-    // });
+async function asyncLH (privateKey, publicKey) {
+    // console.log("asyncLH")
+    filepath = './uploads/' + filename;
+
+    const apiKey = 'efe51041.77131449b309469f98eed12c6f319f0f'
+    // const signedMessage = await signAuthMessage(privateKey)
+    
+    // const response = await lighthouse.uploadEncrypted(filepath, apiKey, publicKey, signedMessage)
+    // console.log(response)
+
     const uploadResponse = await lighthouse.upload(
-        '/Users/aryan/4zzz.pdb',
+        filepath,
         'efe51041.77131449b309469f98eed12c6f319f0f'
         );
-    console.log("uploadResponse")
+
+    // console.log("uploadResponse")
     console.log(uploadResponse);
+    // extract out the hash from the response
+    hash = uploadResponse.data.Hash;
+    console.log("hash", hash);
+
+    
     return uploadResponse;
 }
 
@@ -42,10 +65,16 @@ app.post('/upload', upload.single('file'), (req, res) => {
 if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
 }
+console.log(req.body)
+const privateKey = req.body.privateKey;
+const publicKey = req.body.publicKey;
+
+// console.log("privateKey", privateKey);
+// console.log("publicKey", publicKey);
 
 // call lighthouse.js
 try {
-    asyncLH();
+    asyncLH(privateKey, publicKey);
 } catch(error) {
         console.error(error);
         process.exitCode = 1;
