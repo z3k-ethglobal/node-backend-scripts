@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const keccak256 = require('keccak256');
 const app = express();
 const lighthouse = require('@lighthouse-web3/sdk');
-const { ethers } = require("ethers");
+const { ethers, hashMessage } = require("ethers");
 const { kavach } = require("@lighthouse-web3/kavach");
 
 app.use(bodyParser.json()); // for parsing application/json
@@ -56,7 +56,10 @@ async function asyncLH (privateKey, publicKey) {
     hash = uploadResponse.data.Hash;
     console.log("hash", hash);
 
-    
+    const hash256 = keccak256(hash);
+    const hstring = hash256.toString('hex');
+    console.log("hash256", hash256);
+    console.log("hstring", hstring);
     return uploadResponse;
 }
 
